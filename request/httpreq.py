@@ -1,6 +1,9 @@
 from urllib.request import (Request, urlopen)
+from urllib.error import HTTPError
 from configparser import ConfigParser
 from urllib.parse import urlencode
+from threading import Thread
+import time
 
 
 def get_request():
@@ -22,7 +25,43 @@ def get_request():
     return temp
 
 
-test = get_request()
-for t in test:
-    res = urlopen(t)
-    print(res.read())
+class LoadVU(Thread):
+    def __init__(self, id, req):
+        self.timer = time.time()
+        self.running = True
+        self.req = req
+        print(id)
+
+    def send(self, req):
+        try:
+            start_time = self.timer
+            resp = urlopen(req)
+            conn_end_time = self.timer
+            content = resp.read()
+            end_time = self.timer
+        except HTTPError as err:
+            resp = None
+            conn_end_time = self.timer
+            content = 'Error occurs during urlopen func'
+            end_time = self.timer
+        return resp, content, start_time, end_time, conn_end_time
+
+    def run(self):
+        vu_start_time = self.timer
+        while self.running:
+            resp, content, start_time, end_time, conn_end_time = self.send(self.req)
+        print(resp)
+        print(content)
+        print(start_time)
+        print(end_time)
+        print(conn_end_time)
+
+    def stop(self):
+        self.running = False
+
+
+# reqs = get_request()
+# for req in reqs:
+#     LoadVU(req)
+
+print('hello')
