@@ -26,42 +26,67 @@ def get_request():
 
 
 class LoadVU(Thread):
-    def __init__(self, id, req):
-        self.timer = time.time()
+    def __init__(self, req):
+        Thread.__init__(self)
         self.running = True
         self.req = req
-        print(id)
 
-    def send(self, req):
+    def send(self):
         try:
-            start_time = self.timer
-            resp = urlopen(req)
-            conn_end_time = self.timer
+            start_time = time.clock()
+            resp = urlopen(self.req)
+            conn_end_time = time.clock()
             content = resp.read()
-            end_time = self.timer
+            end_time = time.clock()
         except HTTPError as err:
             resp = None
-            conn_end_time = self.timer
-            content = 'Error occurs during urlopen func'
-            end_time = self.timer
+            conn_end_time = time.clock()
+            content = err.reason
+            end_time = time.clock()
         return resp, content, start_time, end_time, conn_end_time
 
     def run(self):
-        vu_start_time = self.timer
+        vu_start_time = time.clock()
         while self.running:
-            resp, content, start_time, end_time, conn_end_time = self.send(self.req)
-        print(resp)
-        print(content)
-        print(start_time)
-        print(end_time)
-        print(conn_end_time)
+            if self.running:
+                resp, content, start_time, end_time, conn_end_time = self.send()
+                print('res time is:' + str(end_time-start_time))
+            else:
+                break
+        vu_end_time = time.clock()
+        print('vu running time is:' + str(vu_end_time - vu_start_time))
 
     def stop(self):
         self.running = False
 
 
-# reqs = get_request()
-# for req in reqs:
-#     LoadVU(req)
+class LoadMagr(Thread):
+    def __init__(self, reqs, num_vus):
+        Thread.__init__(self)
+        self.requests = reqs
+        self.num_vus = num_vus
+        self.running = True
+        self.lstvu = []
 
-print('hello')
+    def run(self):
+        while self.running:
+            for i in range(self.num_vus):
+                if self.running:
+                    for req in self.requests:
+                        vu = LoadVU(req)
+                        vu.start()
+                        self.lstvu.append(vu)
+                        print('start')
+
+    def stop(self):
+        self.running = False
+        for vu in self.lstvu:
+            vu.stop()
+            print('stop')
+
+
+reqs = get_request()
+t = LoadMagr(reqs, 10)
+t.start()
+# time.sleep(5)
+t.stop()
