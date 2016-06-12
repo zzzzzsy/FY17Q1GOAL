@@ -1,9 +1,10 @@
 from urllib.request import (Request, urlopen)
-from urllib.error import HTTPError
+from urllib.error import (HTTPError, URLError, ContentTooShortError)
 from configparser import ConfigParser
 from urllib.parse import urlencode
 from threading import Thread
 import time
+import socket
 
 
 def get_request():
@@ -26,31 +27,57 @@ def get_request():
 
 
 class LoadVU(Thread):
-    def __init__(self, req):
+    def __init__(self, reqs, thinktime=0):
         Thread.__init__(self)
         self.running = True
-        self.req = req
+        self.reqs = reqs
+        self.thinktime = thinktime
 
-    def send(self):
+    def send(self, req):
         try:
             start_time = time.clock()
-            resp = urlopen(self.req)
+            resp = urlopen(req)
             conn_end_time = time.clock()
-            content = resp.read()
+            content = resp.read().decode()
             end_time = time.clock()
-        except HTTPError as err:
+            resp.close()
+        except HTTPError as err1:
             resp = None
             conn_end_time = time.clock()
-            content = err.reason
+            content = err1.reason
             end_time = time.clock()
+        except URLError as err2:
+            resp = None
+            conn_end_time = time.clock()
+            content = err2.reason
+            end_time = time.clock()
+        except ContentTooShortError as err3:
+            resp = None
+            conn_end_time = time.clock()
+            content = err3.reason
+            end_time = time.clock()
+        except socket.timeout:
+            resp = None
+            conn_end_time = time.clock()
+            content = 'Request time out'
+            end_time = time.clock()
+        # finally:
+        #     resp.close()
+        # except Exception:
+        #     resp = None
+        #     conn_end_time = time.clock()
+        #     content = 'Unknow exception'
+        #     end_time = time.clock()
+        #     print(content)
         return resp, content, start_time, end_time, conn_end_time
 
     def run(self):
         vu_start_time = time.clock()
-        while self.running:
+        for req in self.reqs:
+            time.sleep(self.thinktime)
             if self.running:
-                resp, content, start_time, end_time, conn_end_time = self.send()
-                print('res time is:' + str(end_time-start_time))
+                resp, content, start_time, end_time, conn_end_time = self.send(req)
+                print('res time is:' + str(end_time - start_time))
             else:
                 break
         vu_end_time = time.clock()
@@ -61,32 +88,32 @@ class LoadVU(Thread):
 
 
 class LoadMagr(Thread):
-    def __init__(self, reqs, num_vus):
+    def __init__(self, reqs, num_vus, thinktime=0):
         Thread.__init__(self)
         self.requests = reqs
         self.num_vus = num_vus
         self.running = True
         self.lstvu = []
+        self.thinktime = thinktime
+        socket.setdefaulttimeout(20)
 
     def run(self):
-        while self.running:
-            for i in range(self.num_vus):
-                if self.running:
-                    for req in self.requests:
-                        vu = LoadVU(req)
-                        vu.start()
-                        self.lstvu.append(vu)
-                        print('start')
+        self.running = True
+        for i in range(self.num_vus):
+            if self.running:
+                vu = LoadVU(self.requests, self.thinktime)
+                vu.start()
+                self.lstvu.append(vu)
+                print('VU ' + str(i) + ' started.')
 
     def stop(self):
         self.running = False
         for vu in self.lstvu:
             vu.stop()
-            print('stop')
 
 
 reqs = get_request()
-t = LoadMagr(reqs, 10)
+t = LoadMagr(reqs, 3000)
 t.start()
-# time.sleep(5)
+time.sleep(3)
 t.stop()
