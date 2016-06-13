@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 from threading import Thread
 import time
 import socket
+import requests
 
 
 def get_request():
@@ -61,25 +62,21 @@ class LoadVU(Thread):
             conn_end_time = time.clock()
             content = 'Request time out'
             end_time = time.clock()
-        # finally:
-        #     resp.close()
-        # except Exception:
-        #     resp = None
-        #     conn_end_time = time.clock()
-        #     content = 'Unknow exception'
-        #     end_time = time.clock()
-        #     print(content)
+        finally:
+            if resp is not None:
+                resp.close()
         return resp, content, start_time, end_time, conn_end_time
 
     def run(self):
         vu_start_time = time.clock()
-        for req in self.reqs:
-            time.sleep(self.thinktime)
-            if self.running:
-                resp, content, start_time, end_time, conn_end_time = self.send(req)
-                print('res time is:' + str(end_time - start_time))
-            else:
-                break
+        while self.running:
+            for req in self.reqs:
+                time.sleep(self.thinktime)
+                if self.running:
+                    resp, content, start_time, end_time, conn_end_time = self.send(req)
+                    print('res time is:' + str(end_time - start_time))
+                else:
+                    break
         vu_end_time = time.clock()
         print('vu running time is:' + str(vu_end_time - vu_start_time))
 
@@ -103,6 +100,7 @@ class LoadMagr(Thread):
             if self.running:
                 vu = LoadVU(self.requests, self.thinktime)
                 vu.start()
+                time.sleep(0.05)
                 self.lstvu.append(vu)
                 print('VU ' + str(i) + ' started.')
 
@@ -112,8 +110,12 @@ class LoadMagr(Thread):
             vu.stop()
 
 
+# class ErrorResponse:
+#     def __init__(self):
+
+
 reqs = get_request()
 t = LoadMagr(reqs, 3000)
 t.start()
-time.sleep(3)
+time.sleep(200)
 t.stop()
