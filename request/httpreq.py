@@ -1,4 +1,3 @@
-from urllib.request import (Request, urlopen)
 from urllib.error import (HTTPError, URLError, ContentTooShortError)
 from configparser import ConfigParser
 from urllib.parse import urlencode
@@ -15,16 +14,30 @@ def get_request():
     secs = cf.sections()
     l = len(secs)
     while l > 0:
-        data = None
+        para = None
+        url = cf.get('request_' + str(l), 'url')
         if cf.has_section('values'):
             values = cf.get('request_' + str(l), 'values')
-            data = urlencode(eval(values)).encode('utf-8')
-        req = Request(cf.get('request_' + str(l), 'url'), data)
-        if cf.has_section('headers'):
-            req.headers = eval(cf.get('request_' + str(l), 'headers'))
+            para = urlencode(eval(values)).encode('utf-8')
+        if cf.has_option('request_' + str(l), 'headers'):
+            headers = eval(cf.get('request_' + str(l), 'headers'))
+        if cf.has_option('request_' + str(l), 'method'):
+            method = cf.get('request_' + str(l), 'method')
+        else:
+            method = 'GET'
+        req = Request(url, headers, method, para)
         l -= 1
         temp.append(req)
+
     return temp
+
+
+class Request:
+    def __init__(self, url, headers, method, para):
+        self.url = url
+        self.headers = headers
+        self.method = method
+        self.para = para
 
 
 class LoadVU(Thread):
@@ -37,34 +50,22 @@ class LoadVU(Thread):
     def send(self, req):
         try:
             start_time = time.clock()
-            resp = urlopen(req)
+            if req.method == 'GET':
+                resp = requests.get(req.url, timeout=60)
             conn_end_time = time.clock()
-            content = resp.read().decode()
+            content = resp.content
             end_time = time.clock()
-            resp.close()
-        except HTTPError as err1:
+        except requests.exceptions.Timeout:
             resp = None
             conn_end_time = time.clock()
-            content = err1.reason
+            content = 'Time Out'
             end_time = time.clock()
-        except URLError as err2:
+        except requests.exceptions.ConnectionError:
             resp = None
+            time.sleep(1)
             conn_end_time = time.clock()
-            content = err2.reason
+            content = 'ConnectionError'
             end_time = time.clock()
-        except ContentTooShortError as err3:
-            resp = None
-            conn_end_time = time.clock()
-            content = err3.reason
-            end_time = time.clock()
-        except socket.timeout:
-            resp = None
-            conn_end_time = time.clock()
-            content = 'Request time out'
-            end_time = time.clock()
-        finally:
-            if resp is not None:
-                resp.close()
         return resp, content, start_time, end_time, conn_end_time
 
     def run(self):
@@ -100,7 +101,7 @@ class LoadMagr(Thread):
             if self.running:
                 vu = LoadVU(self.requests, self.thinktime)
                 vu.start()
-                time.sleep(0.05)
+                # time.sleep(0.05)
                 self.lstvu.append(vu)
                 print('VU ' + str(i) + ' started.')
 
@@ -117,5 +118,5 @@ class LoadMagr(Thread):
 reqs = get_request()
 t = LoadMagr(reqs, 3000)
 t.start()
-time.sleep(200)
+time.sleep(50)
 t.stop()
