@@ -50,10 +50,9 @@ class Request:
 
 
 class ErrResponse:
-    def __init__(self, msg='Unknow Error Message'):
-        self.code = -1
-        self.msg = msg
-        self.headers = {}
+    def __init__(self, reason='Unknow Error Message'):
+        self.status_code = -1
+        self.reason = reason
 
 
 class LoadVU(Thread):
@@ -101,9 +100,9 @@ class LoadVU(Thread):
                     resp, content, start_time, end_time, conn_end_time = self.send(req)
                     error_flag = False
                     excep_flag = False
-                    if resp.code >= 400:
+                    if resp.status_code >= 400:
                         error_flag = True
-                    elif resp.code <= 0:
+                    elif resp.status_code <= 0:
                         excep_flag = True
                     else:
                         total_bytes += len(content)
@@ -112,7 +111,7 @@ class LoadVU(Thread):
                     if excep_flag:
                         self.excep_count += 1
                     self.count += 1
-                    self.result_states[self.id] = ResultState(resp.code, resp.reason, self.count,
+                    self.result_states[self.id] = ResultState(resp.status_code, resp.reason, self.count,
                                                               self.err_count, self.excep_count, total_bytes)
 
                     print('res time is:' + str(end_time - start_time))
@@ -190,18 +189,16 @@ class LoadMagr(Thread):
         self.req_list.append(req)
 
 
-# class ErrorResponse:
-#     def __init__(self):
-
-
 reqs = get_request()
-workload = WorkLoad(100, 0.05, 100)
+workload = WorkLoad(1, 0.05, 100)
 result_states = []
 err_states = []
 for i in range(200):
     result_states.append(None)
     err_states.append(None)
 t = LoadMagr(workload, result_states, err_states)
+for req in reqs:
+    t.add_req(req)
 t.start()
 time.sleep(50)
 t.stop()
