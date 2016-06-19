@@ -4,31 +4,37 @@ from threading import Thread
 import time
 import requests
 from config import config
+import csv
+import os
 
 
-def get_request():
-    temp = []
-    cf = ConfigParser()
-    cf.read('../config/requests.conf')
-    secs = cf.sections()
-    l = len(secs)
-    while l > 0:
-        para = None
-        url = cf.get('request_' + str(l), 'url')
-        if cf.has_section('values'):
-            values = cf.get('request_' + str(l), 'values')
-            para = urlencode(eval(values)).encode('utf-8')
-        if cf.has_option('request_' + str(l), 'headers'):
-            headers = eval(cf.get('request_' + str(l), 'headers'))
-        if cf.has_option('request_' + str(l), 'method'):
-            method = cf.get('request_' + str(l), 'method')
-        else:
-            method = 'GET'
-        req = Request(url, headers, method, para)
-        l -= 1
-        temp.append(req)
+class RequestsConfig:
+    def __init__(self, config_path=config.REQ_LIST):
+        self.config_path = config_path
+        self.req_list = []
+        self.cf = ConfigParser()
 
-    return temp
+    def get_request(self):
+        self.cf.read(self.config_path)
+        secs = self.cf.sections()
+        l = len(secs)
+        while l > 0:
+            para = None
+            strreq = 'request_' + str(l)
+            url = self.cf.get(strreq, 'url')
+            if self.cf.has_option(strreq, 'values'):
+                values = self.cf.get(strreq, 'values')
+                para = urlencode(eval(values)).encode('utf-8')
+            if self.cf.has_option(strreq, 'headers'):
+                headers = eval(self.cf.get(strreq, 'headers'))
+            if self.cf.has_option(strreq, 'method'):
+                method = self.cf.get(strreq, 'method')
+            else:
+                method = 'GET'
+            req = Request(url, headers, method, para)
+            l -= 1
+            self.req_list.append(req)
+        return self.req_list
 
 
 class Request:
@@ -39,7 +45,7 @@ class Request:
         else:
             self.headers = {}
         if 'user-agent' not in [header.lower() for header in self.headers]:
-            self.add_header('User-Agent', 'Mozilla/4.0 (compatible; Pylot)')
+            self.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.2; WOW64; rv:22.0) Gecko/20100101 Firefox/22.0')
         self.method = method
         self.para = para
 
@@ -71,7 +77,9 @@ class LoadVU(Thread):
         try:
             start_time = time.clock()
             if req.method == 'GET':
-                resp = requests.get(req.url, timeout=60)
+                resp = requests.get(req.url, headers=req.headers, timeout=60)
+            else:
+                resp = requests.post(req.url, req.para, headers=req.headers, timeout=60)
             conn_end_time = time.clock()
             content = resp.content
             end_time = time.clock()
@@ -110,13 +118,14 @@ class LoadVU(Thread):
                     if excep_flag:
                         self.excep_count += 1
                     r = ResState(resp.status_code, resp.reason, self.count, res_bytes, str(conn_end_time - start_time),
-                                 str(end_time - start_time))
+                                 str(end_time - start_time), self.id)
                     self.count += 1
                     self.results[self.id].add_res_state(r)
                     if config.CONSOLE:
                         print('res time is:' + str(end_time - start_time))
                 else:
                     break
+                time.sleep(self.think_time)
         vu_end_time = time.clock()
         self.results[self.id].vu_finalize(vu_start_time, vu_end_time, self.err_count, self.excep_count, total_bytes)
         if config.CONSOLE:
@@ -127,17 +136,29 @@ class LoadVU(Thread):
 
 
 class ResState:
-    def __init__(self, code, reason, count, res_bytes, conn_time, res_time):
+    def __init__(self, code, reason, count, res_bytes, conn_time, res_time, vu_id):
         self.code = code
         self.reason = reason
         self.count = count
         self.bytes = res_bytes
         self.conn_time = conn_time
         self.res_time = res_time
+        self.vu_id = vu_id
+        self.res_lst = []
 
     def __str__(self):
-        return 'Request %d: Code: %d, Desc: %s, Bytes: %d, Connection time: %s, Res time: %s' % (
-            self.count, self.code, self.reason, self.bytes, self.conn_time, self.res_time)
+        return 'VU %d Request %d: Code: %d, Desc: %s, Bytes: %d, Connection time: %s, Res time: %s' % (
+            self.vu_id, self.count, self.code, self.reason, self.bytes, self.conn_time, self.res_time)
+
+    def rowdict(self):
+        self.res_lst.append(self.vu_id)
+        self.res_lst.append(self.count)
+        self.res_lst.append(self.code)
+        self.res_lst.append(self.reason)
+        self.res_lst.append(self.bytes)
+        self.res_lst.append(self.conn_time)
+        self.res_lst.append(self.res_time)
+        return self.res_lst
 
 
 class VUResCollection:
@@ -150,6 +171,7 @@ class VUResCollection:
         self.excp_cnt = 0
         self.total_bytes = 0
         self.cursor = 0
+        self.res_lst = []
 
     def add_res_state(self, res_state):
         self.vu_res_state.append(res_state)
@@ -177,6 +199,16 @@ class VUResCollection:
                    self.id, self.vu_start_time, self.vu_end_time, self.err_cnt,
                    self.excp_cnt, len(self.vu_res_state),
                    self.total_bytes)
+
+    def rowdict(self):
+        self.res_lst.append(self.id)
+        self.res_lst.append(self.vu_start_time)
+        self.res_lst.append(self.vu_end_time)
+        self.res_lst.append(self.err_cnt)
+        self.res_lst.append(self.excp_cnt)
+        self.res_lst.append(len(self.vu_res_state))
+        self.res_lst.append(self.total_bytes)
+        return self.res_lst
 
 
 class WorkLoad:
@@ -290,16 +322,43 @@ class Calculate:
         return value
 
 
-reqs = get_request()
-workload = WorkLoad(50, 0.05, 3000)
+class CollectCSVResults:
+    def __init__(self, load_magr, output_dir=config.OUTPUT_DIR):
+        self.load_magr = load_magr
+        self.output_dir = output_dir
+        strfile = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+        result_dir = self.output_dir + config.PROJECT_NAME
+        if not os.path.exists(result_dir):
+            os.makedirs(result_dir)
+        self.vu_file = result_dir + '/' + 'vu_results_' + strfile + '.csv'
+        self.res_file = result_dir + '/' + 'res_results_' + strfile + '.csv'
+
+    def generate_result(self):
+        vu_headers = ['vu', 'st time', 'et time', 'err cnt', 'excp cnt', 'ttl reqs',
+                      'ttl bytes']
+        res_headers = ['vu', 'req id', 'res code', 'desc', 'bytes', 'conn time', 'res time']
+
+        with open(self.vu_file, 'w', newline='\n') as vu_result:
+            with open(self.res_file, 'w', newline='\n') as res_result:
+                vu_writer = csv.writer(vu_result)
+                vu_writer.writerow(vu_headers)
+                res_writer = csv.writer(res_result)
+                res_writer.writerow(res_headers)
+                for res in self.load_magr.results:
+                    vu_writer.writerow(res.rowdict())
+                    for r in res:
+                        res_writer.writerow(r.rowdict())
+
+
+reqconfig = RequestsConfig()
+reqs = reqconfig.get_request()
+workload = WorkLoad(config.RAMPUP, config.INTERVAL, config.VUS)
 t = LoadMagr(workload)
 for req in reqs:
     t.add_req(req)
 t.start()
-time.sleep(200)
+time.sleep(config.DURATION)
 t.stop()
-
-for res in t.results:
-    print(res)
-    for r in res:
-        print(r)
+if config.GENERATE_RESULTS:
+    results = CollectCSVResults(t)
+    results.generate_result()

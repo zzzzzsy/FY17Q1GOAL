@@ -1,7 +1,12 @@
-AGENTS = 1
-DURATION = 60  # secs
-RAMPUP = 0  # secs
-INTERVAL = 0  # millisecs
-OUTPUT_DIR = None
+# General
+OUTPUT_DIR = 'D:/06_Workspace/07_Temp/'
+PROJECT_NAME = 'FY17Q1GOAL'
 REQ_LIST = '../config/requests.conf'
-CONSOLE = True
+CONSOLE = False
+GENERATE_RESULTS = True
+
+# WorkLoad
+VUS = 1000
+DURATION = 50  # secs
+RAMPUP = 20  # secs
+INTERVAL = 0.1  # millisecs
