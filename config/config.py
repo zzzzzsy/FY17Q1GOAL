@@ -6,7 +6,7 @@ CONSOLE = False
 GENERATE_RESULTS = True
 
 # WorkLoad
-VUS = 1000
+VUS = 100
 DURATION = 50  # secs
-RAMPUP = 20  # secs
+RAMPUP = 5  # secs
 INTERVAL = 0.1  # millisecs

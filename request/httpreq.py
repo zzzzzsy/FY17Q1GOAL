@@ -1,9 +1,10 @@
 from configparser import ConfigParser
 from urllib.parse import urlencode
 from threading import Thread
+from config import config
+from pylab import *
 import time
 import requests
-from config import config
 import csv
 import os
 
@@ -308,7 +309,7 @@ class Calculate:
         if len(self.val) < 1:
             value = None
         elif p >= 100:
-            print('ERROR: percentile must be < 100.  you supplied: %s\n' % p)
+            print('ERROR: percentile must be < 100.  you supplied: %s' % p)
             value = None
         else:
             seq = self.val
@@ -348,6 +349,47 @@ class CollectCSVResults:
                     vu_writer.writerow(res.rowdict())
                     for r in res:
                         res_writer.writerow(r.rowdict())
+
+
+class Graph:
+    def __init__(self, data_lst, output_dir=config.OUTPUT_DIR):
+        self.data_lst = data_lst
+        self.str_time = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+        self.result_dir = output_dir + config.PROJECT_NAME
+
+    @staticmethod
+    def graph_init(ylabel, save_to):
+        fig = figure(figsize=(8, 3))
+        ax = fig.add_subplot(111)
+        ax.grid(True, color='#666666')
+        ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
+        ax.set_ylabel(ylabel, size='x-small')
+        xticks(size='x-small')
+        yticks(size='x-small')
+        axis(xmin=0)
+        return ax
+
+    def res_graph(self):
+        name = config.PROJECT_NAME + '_RES_' + self.str_time + '.png'
+        save_to = self.result_dir + '/' + name
+        ax = Graph.graph_init()
+
+        pass
+
+    def conn_graph(self):
+        name = config.PROJECT_NAME + '_CONN_' + self.str_time + '.png'
+        save_to = self.result_dir + '/' + name
+        pass
+
+    def vu_graph(self):
+        name = config.PROJECT_NAME + '_VU_' + self.str_time + '.png'
+        save_to = self.result_dir + '/' + name
+        pass
+
+    def tp_graph(self):
+        name = config.PROJECT_NAME + '_TP_' + self.str_time + '.png'
+        save_to = self.result_dir + '/' + name
+        pass
 
 
 reqconfig = RequestsConfig()
