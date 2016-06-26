@@ -32,15 +32,16 @@ class RequestsConfig:
                 method = self.cf.get(strreq, 'method')
             else:
                 method = 'GET'
-            req = Request(url, headers, method, para)
+            req = Request(strreq, url, headers, method, para)
             l -= 1
             self.req_list.append(req)
         return self.req_list
 
 
 class Request:
-    def __init__(self, url, headers=None, method='GET', para=None):
+    def __init__(self, name, url, headers=None, method='GET', para=None):
         self.url = url
+        self.name = name
         if headers:
             self.headers = headers
         else:
@@ -118,7 +119,8 @@ class LoadVU(Thread):
                         self.err_count += 1
                     if excep_flag:
                         self.excep_count += 1
-                    r = ResState(resp.status_code, resp.reason, self.count, res_bytes, str(conn_end_time - start_time),
+                    r = ResState(req.name, resp.status_code, resp.reason, self.count, res_bytes,
+                                 str(conn_end_time - start_time),
                                  str(end_time - start_time), self.id)
                     self.count += 1
                     self.results[self.id].add_res_state(r)
@@ -137,7 +139,8 @@ class LoadVU(Thread):
 
 
 class ResState:
-    def __init__(self, code, reason, count, res_bytes, conn_time, res_time, vu_id):
+    def __init__(self, name, code, reason, count, res_bytes, conn_time, res_time, vu_id):
+        self.name = name
         self.code = code
         self.reason = reason
         self.count = count
@@ -148,12 +151,13 @@ class ResState:
         self.res_lst = []
 
     def __str__(self):
-        return 'VU %d Request %d: Code: %d, Desc: %s, Bytes: %d, Connection time: %s, Res time: %s' % (
-            self.vu_id, self.count, self.code, self.reason, self.bytes, self.conn_time, self.res_time)
+        return 'VU %d Request %d Name %s: Code: %d, Desc: %s, Bytes: %d, Connection time: %s, Res time: %s' % (
+            self.vu_id, self.count, self.name, self.code, self.reason, self.bytes, self.conn_time, self.res_time)
 
     def rowdict(self):
         self.res_lst.append(self.vu_id)
         self.res_lst.append(self.count)
+        self.res_lst.append(self.name)
         self.res_lst.append(self.code)
         self.res_lst.append(self.reason)
         self.res_lst.append(self.bytes)
@@ -266,63 +270,6 @@ class LoadMagr(Thread):
         self.req_list.append(req)
 
 
-class Calculate:
-    def __init__(self, val):
-        self.val = [float(item) for item in val]
-
-    def sum(self):
-        if len(self.val) < 1:
-            return None
-        else:
-            return sum(self.val)
-
-    def count(self):
-        return len(self.val)
-
-    def max(self):
-        if len(self.val) < 1:
-            return None
-        else:
-            return max(self.val)
-
-    def min(self):
-        if len(self.val) < 1:
-            return None
-        else:
-            return min(self.val)
-
-    def avg(self):
-        if len(self.val) < 1:
-            return None
-        else:
-            return sum(self.val) / len(self.val)
-
-    def mid(self):
-        if len(self.val) < 1:
-            return None
-        else:
-            seq = self.val
-            seq.sort()
-            return seq[len(seq) // 2]
-
-    def percentile(self, p):
-        if len(self.val) < 1:
-            value = None
-        elif p >= 100:
-            print('ERROR: percentile must be < 100.  you supplied: %s' % p)
-            value = None
-        else:
-            seq = self.val
-            seq.sort()
-            print(seq)
-            index = int(len(self.val) * (p / 100))
-            if len(self.val) * p % 100 == 0:
-                value = seq[index - 1]
-            else:
-                value = (seq[index - 1] + seq[index]) / 2
-        return value
-
-
 class CollectCSVResults:
     def __init__(self, load_magr, output_dir=config.OUTPUT_DIR):
         self.load_magr = load_magr
@@ -333,11 +280,13 @@ class CollectCSVResults:
             os.makedirs(result_dir)
         self.vu_file = result_dir + '/' + 'vu_results_' + strfile + '.csv'
         self.res_file = result_dir + '/' + 'res_results_' + strfile + '.csv'
+        self.vu_res = []
+        self.req_res = []
 
     def generate_result(self):
         vu_headers = ['vu', 'st time', 'et time', 'err cnt', 'excp cnt', 'ttl reqs',
                       'ttl bytes']
-        res_headers = ['vu', 'req id', 'res code', 'desc', 'bytes', 'conn time', 'res time']
+        res_headers = ['vu', 'req id', 'req name', 'res code', 'desc', 'bytes', 'conn time', 'res time']
 
         with open(self.vu_file, 'w', newline='\n') as vu_result:
             with open(self.res_file, 'w', newline='\n') as res_result:
@@ -347,19 +296,27 @@ class CollectCSVResults:
                 res_writer.writerow(res_headers)
                 for res in self.load_magr.results:
                     vu_writer.writerow(res.rowdict())
+                    self.vu_res.append(res.rowdict())
                     for r in res:
                         res_writer.writerow(r.rowdict())
+                        self.req_res.append(r.rowdict())
+
+    def vu_graph_data(self):
+        y_seq = (item[0] for item in self.vu_res)
+        x_seq = (item[1] for item in self.vu_res)
+        return x_seq, y_seq
 
 
 class Graph:
-    def __init__(self, data_lst, output_dir=config.OUTPUT_DIR):
-        self.data_lst = data_lst
+    def __init__(self, x, y, output_dir=config.OUTPUT_DIR):
+        self.x = x
+        self.y = y
         self.str_time = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
         self.result_dir = output_dir + config.PROJECT_NAME
 
     @staticmethod
-    def graph_init(ylabel, save_to):
-        fig = figure(figsize=(8, 3))
+    def graph_init(ylabel):
+        fig = figure(figsize=(8, 4))
         ax = fig.add_subplot(111)
         ax.grid(True, color='#666666')
         ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
@@ -367,14 +324,16 @@ class Graph:
         xticks(size='x-small')
         yticks(size='x-small')
         axis(xmin=0)
+        print(axis())
         return ax
 
     def res_graph(self):
         name = config.PROJECT_NAME + '_RES_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
-        ax = Graph.graph_init()
-
-        pass
+        ax = Graph.graph_init('RES Response')
+        ax.plot(self.x, self.y, color='blue', linestyle='-', linewidth=1.0, marker='o',
+                markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+        savefig(save_to)
 
     def conn_graph(self):
         name = config.PROJECT_NAME + '_CONN_' + self.str_time + '.png'
@@ -392,15 +351,20 @@ class Graph:
         pass
 
 
-reqconfig = RequestsConfig()
-reqs = reqconfig.get_request()
-workload = WorkLoad(config.RAMPUP, config.INTERVAL, config.VUS)
-t = LoadMagr(workload)
-for req in reqs:
-    t.add_req(req)
-t.start()
-time.sleep(config.DURATION)
-t.stop()
-if config.GENERATE_RESULTS:
-    results = CollectCSVResults(t)
-    results.generate_result()
+#
+# reqconfig = RequestsConfig()
+# reqs = reqconfig.get_request()
+# workload = WorkLoad(config.RAMPUP, config.INTERVAL, config.VUS)
+# t = LoadMagr(workload)
+# for req in reqs:
+#     t.add_req(req)
+# t.start()
+# time.sleep(config.DURATION)
+# t.stop()
+# if config.GENERATE_RESULTS:
+#     results = CollectCSVResults(t)
+#     results.generate_result()
+
+
+g = Graph((1, 2, 3), (6, 7, 8))
+g.res_graph()
