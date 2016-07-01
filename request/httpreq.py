@@ -7,6 +7,7 @@ import time
 import requests
 import csv
 import os
+import math
 
 
 class RequestsConfig:
@@ -302,69 +303,74 @@ class CollectCSVResults:
                         self.req_res.append(r.rowdict())
 
     def vu_graph_data(self):
-        y_seq = (item[0] for item in self.vu_res)
-        x_seq = (item[1] for item in self.vu_res)
+        x_seq = [item[1] for item in self.vu_res]
+        x_temp = [item[2] for item in self.vu_res]
+        x_temp.sort()
+        x_seq.extend(x_temp)
+        y_seq = [item[0] for item in self.vu_res]
+        y_temp = [y for y in range(max(y_seq) + 1)]
+        y_temp.reverse()
+        y_seq.extend(y_temp)
         return x_seq, y_seq
 
 
 class Graph:
-    def __init__(self, x, y, output_dir=config.OUTPUT_DIR):
-        self.x = x
-        self.y = y
+    def __init__(self, output_dir=config.OUTPUT_DIR):
         self.str_time = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
         self.result_dir = output_dir + config.PROJECT_NAME
 
     @staticmethod
-    def graph_init(ylabel):
+    def graph_init():
         fig = figure(figsize=(8, 4))
         ax = fig.add_subplot(111)
         ax.grid(True, color='#666666')
         ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
-        ax.set_ylabel(ylabel, size='x-small')
         xticks(size='x-small')
         yticks(size='x-small')
-        axis(xmin=0)
-        print(axis())
         return ax
 
-    def res_graph(self):
+    def res_graph(self, x, y):
         name = config.PROJECT_NAME + '_RES_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
         ax = Graph.graph_init('RES Response')
-        ax.plot(self.x, self.y, color='blue', linestyle='-', linewidth=1.0, marker='o',
+        ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
                 markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+        axis(xmin=0, xmax=7, ymin=0, ymax=10)
         savefig(save_to)
 
     def conn_graph(self):
         name = config.PROJECT_NAME + '_CONN_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
-        pass
 
-    def vu_graph(self):
+    def vu_graph(self, x, y):
         name = config.PROJECT_NAME + '_VU_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
-        pass
+        ax = Graph.graph_init()
+        ax.set_ylabel('VU Number', size='x-small')
+        ax.set_title('Running VUsers', size='medium')
+        ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
+                markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+        axis(xmax=math.ceil(max(x) * 1.2), ymax=math.ceil(max(y) * 1.2))
+        savefig(save_to)
 
     def tp_graph(self):
         name = config.PROJECT_NAME + '_TP_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
-        pass
 
 
-#
-# reqconfig = RequestsConfig()
-# reqs = reqconfig.get_request()
-# workload = WorkLoad(config.RAMPUP, config.INTERVAL, config.VUS)
-# t = LoadMagr(workload)
-# for req in reqs:
-#     t.add_req(req)
-# t.start()
-# time.sleep(config.DURATION)
-# t.stop()
-# if config.GENERATE_RESULTS:
-#     results = CollectCSVResults(t)
-#     results.generate_result()
+reqconfig = RequestsConfig()
+reqs = reqconfig.get_request()
+workload = WorkLoad(config.RAMPUP, config.INTERVAL, config.VUS)
+t = LoadMagr(workload)
+for req in reqs:
+    t.add_req(req)
+t.start()
+time.sleep(config.DURATION)
+t.stop()
+if config.GENERATE_RESULTS:
+    results = CollectCSVResults(t)
+    results.generate_result()
+    x_seq, y_seq = results.vu_graph_data()
+    g = Graph()
+    g.vu_graph(x_seq, y_seq)
 
-
-g = Graph((1, 2, 3), (6, 7, 8))
-g.res_graph()
