@@ -9,6 +9,8 @@ import csv
 import os
 import math
 
+REQ_NAMES = []
+
 
 class RequestsConfig:
     def __init__(self, config_path=config.REQ_LIST):
@@ -23,6 +25,7 @@ class RequestsConfig:
         while l > 0:
             para = None
             strreq = 'request_' + str(l)
+            REQ_NAMES.append(strreq)
             url = self.cf.get(strreq, 'url')
             if self.cf.has_option(strreq, 'values'):
                 values = self.cf.get(strreq, 'values')
@@ -80,9 +83,9 @@ class LoadVU(Thread):
         try:
             start_time = time.clock()
             if req.method == 'GET':
-                resp = requests.get(req.url, headers=req.headers, timeout=60)
+                resp = requests.get(req.url, headers=req.headers, timeout=config.REQ_TIMEOUT)
             else:
-                resp = requests.post(req.url, req.para, headers=req.headers, timeout=60)
+                resp = requests.post(req.url, req.para, headers=req.headers, timeout=config.REQ_TIMEOUT)
             conn_end_time = time.clock()
             content = resp.content
             end_time = time.clock()
@@ -100,7 +103,7 @@ class LoadVU(Thread):
         return resp, content, start_time, end_time, conn_end_time
 
     def run(self):
-        vu_start_time = time.clock()
+        vu_start_time = time.clock() + config.RAMPUP / config.VUS
         total_bytes = 0
         while self.running:
             for req in self.req_list:
@@ -121,8 +124,8 @@ class LoadVU(Thread):
                     if excep_flag:
                         self.excep_count += 1
                     r = ResState(req.name, resp.status_code, resp.reason, self.count, res_bytes,
-                                 str(conn_end_time - start_time),
-                                 str(end_time - start_time), self.id)
+                                 start_time, conn_end_time,
+                                 end_time, self.id)
                     self.count += 1
                     self.results[self.id].add_res_state(r)
                     if config.CONSOLE:
@@ -140,20 +143,25 @@ class LoadVU(Thread):
 
 
 class ResState:
-    def __init__(self, name, code, reason, count, res_bytes, conn_time, res_time, vu_id):
+    def __init__(self, name, code, reason, count, res_bytes, start_time, conn_end_time, res_end_time, vu_id):
         self.name = name
         self.code = code
         self.reason = reason
         self.count = count
         self.bytes = res_bytes
-        self.conn_time = conn_time
-        self.res_time = res_time
+        self.start_time = start_time
+        self.conn_end_time = conn_end_time
+        self.res_end_time = res_end_time
         self.vu_id = vu_id
         self.res_lst = []
 
     def __str__(self):
-        return 'VU %d Request %d Name %s: Code: %d, Desc: %s, Bytes: %d, Connection time: %s, Res time: %s' % (
-            self.vu_id, self.count, self.name, self.code, self.reason, self.bytes, self.conn_time, self.res_time)
+        return 'VU %d Request %d Name %s: Code: %d, Desc: %s, Bytes: %d, ' \
+               'Start time: %s, Connection end time: %s, Res end time: %s' \
+               'Conn elapsed time: %s, Res elapsed time: %s' % (
+                   self.vu_id, self.count, self.name, self.code, self.reason, self.bytes,
+                   self.start_time, self.conn_end_time, self.res_end_time,
+                   str(self.conn_end_time - self.start_time), str(self.res_end_time - self.start_time))
 
     def rowdict(self):
         self.res_lst.append(self.vu_id)
@@ -162,8 +170,11 @@ class ResState:
         self.res_lst.append(self.code)
         self.res_lst.append(self.reason)
         self.res_lst.append(self.bytes)
-        self.res_lst.append(self.conn_time)
-        self.res_lst.append(self.res_time)
+        self.res_lst.append(self.start_time)
+        self.res_lst.append(self.conn_end_time)
+        self.res_lst.append(self.res_end_time)
+        self.res_lst.append(self.conn_end_time - self.start_time)
+        self.res_lst.append(self.res_end_time - self.start_time)
         return self.res_lst
 
 
@@ -254,7 +265,6 @@ class LoadMagr(Thread):
                 vu = LoadVU(i, self.think_time, self.req_list, self.results,
                             self.err_states)
                 vu.start()
-                # time.sleep(0.05)
                 self.vu_list.append(vu)
                 if config.CONSOLE:
                     print('VU ' + str(i) + ' started.' + str(time.clock()))
@@ -287,7 +297,8 @@ class CollectCSVResults:
     def generate_result(self):
         vu_headers = ['vu', 'st time', 'et time', 'err cnt', 'excp cnt', 'ttl reqs',
                       'ttl bytes']
-        res_headers = ['vu', 'req id', 'req name', 'res code', 'desc', 'bytes', 'conn time', 'res time']
+        res_headers = ['vu', 'req id', 'req name', 'res code', 'desc', 'bytes',
+                       'start time', 'conn end time', 'res end time', 'conn elapsed time', 'res elapsed time']
 
         with open(self.vu_file, 'w', newline='\n') as vu_result:
             with open(self.res_file, 'w', newline='\n') as res_result:
@@ -296,21 +307,100 @@ class CollectCSVResults:
                 res_writer = csv.writer(res_result)
                 res_writer.writerow(res_headers)
                 for res in self.load_magr.results:
-                    vu_writer.writerow(res.rowdict())
-                    self.vu_res.append(res.rowdict())
+                    vu_tmp = res.rowdict()
+                    vu_writer.writerow(vu_tmp)
+                    self.vu_res.append(vu_tmp)
                     for r in res:
-                        res_writer.writerow(r.rowdict())
-                        self.req_res.append(r.rowdict())
+                        res_tmp = r.rowdict()
+                        res_writer.writerow(res_tmp)
+                        self.req_res.append(res_tmp)
+
+        if config.VU_GRAPH_ENABLE:
+            x, y = self.vu_graph_data()
+            g = Graph()
+            g.vu_graph(x, y)
+        if config.RES_GRAPH_ENABLE:
+            x, y = self.res_graph_data(8, 10)
+            g = Graph()
+            g.res_graph(x, y)
+        if config.CONN_GRAPH_ENABLE:
+            x, y = self.res_graph_data(7, 9)
+            g = Graph()
+            g.conn_graph(x, y)
+        if config.TP_GRAPH_ENABLE:
+            x, y = self.res_graph_data(8, 5)
+            g = Graph()
+            g.tp_graph(x, y)
+
+    def sort_req_res(self, index=8):
+        pass
 
     def vu_graph_data(self):
         x_seq = [item[1] for item in self.vu_res]
         x_temp = [item[2] for item in self.vu_res]
         x_temp.sort()
+        x_temp.insert(0, config.DURATION)
         x_seq.extend(x_temp)
-        y_seq = [item[0] for item in self.vu_res]
+        y_seq = [(item[0] + 1) for item in self.vu_res]
         y_temp = [y for y in range(max(y_seq) + 1)]
         y_temp.reverse()
         y_seq.extend(y_temp)
+        x_seq.insert(0, 0)
+        y_seq.insert(0, 0)
+        return x_seq, y_seq
+
+    # index i for end time
+    # index j for elapsed time
+    def res_graph_data(self, i, j):
+        temp = [list() for x in range(len(REQ_NAMES))]
+        # res_data = []
+
+        for row in self.req_res:
+            if 0 < int(row[3]) < 400:
+                for name in REQ_NAMES:
+                    if row[2] == name:
+                        temp[REQ_NAMES.index(name)].append(row)
+        for reqs in temp:
+            y_seq = []
+            x_seq = []
+            if reqs is not None:
+                xmax = 0
+                t = [item[i] for item in reqs]
+                v = [item[j] for item in reqs]
+                if len(t) > 0:
+                    for i in range(len(t)):
+                        for j in range(i, len(t)):
+                            if t[i] > t[j]:
+                                temp = t[j]
+                                t[j] = t[i]
+                                t[i] = temp
+                                temp = v[j]
+                                v[j] = v[i]
+                                v[i] = temp
+                    xmax = t[-1]
+            x_seq_temp = [i for i in range(0, math.ceil(xmax + config.RES_X_INTERVAL), config.RES_X_INTERVAL)]
+            count = 0
+            s = 0
+            for x in x_seq_temp:
+                if x == 0:
+                    continue
+                for i in range(len(t)):
+                    if x - config.RES_X_INTERVAL < t[i] <= x:
+                        count += 1
+                        s += v[i]
+                    else:
+                        if s != 0:
+                            if count != 0:
+                                y_seq.append(s / count)
+                                count = 0
+                                s = 0
+                                x_seq.append(x)
+                        else:
+                            continue
+            if count != 0:
+                y_seq.append(s / count)
+                x_seq.append(x_seq_temp[-1])
+            y_seq = [round(item * 1000, 3) for item in y_seq]
         return x_seq, y_seq
 
 
@@ -321,10 +411,9 @@ class Graph:
 
     @staticmethod
     def graph_init():
-        fig = figure(figsize=(8, 4))
+        fig = figure(figsize=(10, 4))
         ax = fig.add_subplot(111)
         ax.grid(True, color='#666666')
-        ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
         xticks(size='x-small')
         yticks(size='x-small')
         return ax
@@ -332,30 +421,54 @@ class Graph:
     def res_graph(self, x, y):
         name = config.PROJECT_NAME + '_RES_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
-        ax = Graph.graph_init('RES Response')
+        ax = Graph.graph_init()
+        ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
+        ax.set_ylabel('Avg Res Time (millisecond)', size='x-small')
+        ax.set_title('Response Time', size='medium')
         ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
                 markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
-        axis(xmin=0, xmax=7, ymin=0, ymax=10)
+        axis(xmin=min(x), xmax=max(x))
         savefig(save_to)
+        close()
 
-    def conn_graph(self):
+    def conn_graph(self, x, y):
         name = config.PROJECT_NAME + '_CONN_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
+        ax = Graph.graph_init()
+        ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
+        ax.set_ylabel('Avg Conn Time (millisecond)', size='x-small')
+        ax.set_title('Connection Time', size='medium')
+        ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
+                markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+        axis(xmin=min(x), xmax=max(x))
+        savefig(save_to)
+        close()
 
     def vu_graph(self, x, y):
         name = config.PROJECT_NAME + '_VU_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
         ax = Graph.graph_init()
+        ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
         ax.set_ylabel('VU Number', size='x-small')
         ax.set_title('Running VUsers', size='medium')
         ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
                 markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
         axis(xmax=math.ceil(max(x) * 1.2), ymax=math.ceil(max(y) * 1.2))
         savefig(save_to)
+        close()
 
-    def tp_graph(self):
+    def tp_graph(self, x, y):
         name = config.PROJECT_NAME + '_TP_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
+        ax = Graph.graph_init()
+        ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
+        ax.set_ylabel('Troughput (Bytes)', size='x-small')
+        ax.set_title('Troughput', size='medium')
+        ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
+                markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+        axis(xmin=min(x), xmax=max(x))
+        savefig(save_to)
+        close()
 
 
 reqconfig = RequestsConfig()
@@ -370,7 +483,3 @@ t.stop()
 if config.GENERATE_RESULTS:
     results = CollectCSVResults(t)
     results.generate_result()
-    x_seq, y_seq = results.vu_graph_data()
-    g = Graph()
-    g.vu_graph(x_seq, y_seq)
-
