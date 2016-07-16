@@ -10,6 +10,7 @@ import os
 import math
 
 REQ_NAMES = []
+COLORS = ['blue', 'red', 'green', 'yellow', 'black', 'cyan', 'magenta']
 
 
 class RequestsConfig:
@@ -320,17 +321,17 @@ class CollectCSVResults:
             g = Graph()
             g.vu_graph(x, y)
         if config.RES_GRAPH_ENABLE:
-            x, y = self.res_graph_data(8, 10)
+            res_data = self.res_graph_data(8, 10)
             g = Graph()
-            g.res_graph(x, y)
+            g.res_graph(res_data)
         if config.CONN_GRAPH_ENABLE:
-            x, y = self.res_graph_data(7, 9)
+            res_data = self.res_graph_data(7, 9)
             g = Graph()
-            g.conn_graph(x, y)
+            g.conn_graph(res_data)
         if config.TP_GRAPH_ENABLE:
-            x, y = self.res_graph_data(8, 5)
-            g = Graph()
-            g.tp_graph(x, y)
+            self.tp_graph_data()
+            # g = Graph()
+            # g.tp_graph(x, y)
 
     def sort_req_res(self, index=8):
         pass
@@ -349,11 +350,24 @@ class CollectCSVResults:
         y_seq.insert(0, 0)
         return x_seq, y_seq
 
-    # index i for end time
-    # index j for elapsed time
-    def res_graph_data(self, i, j):
+    def tp_graph_data(self):
+        x_temp = [item[8] for item in self.req_res]
+        x_seq = [x for x in range(math.ceil(max(x_temp)) + 1)]
+        print(x_seq)
+        x_temp.sort()
+        y_seq = [0]
+        # y_seq.append(0)
+        print(x_temp)
+        count = 0
+        for i in x_seq:
+            for c in x_temp:
+
+
+    # index m for end time
+    # index n for elapsed time
+    def res_graph_data(self, m, n):
         temp = [list() for x in range(len(REQ_NAMES))]
-        # res_data = []
+        res_data = []
 
         for row in self.req_res:
             if 0 < int(row[3]) < 400:
@@ -365,8 +379,8 @@ class CollectCSVResults:
             x_seq = []
             if reqs is not None:
                 xmax = 0
-                t = [item[i] for item in reqs]
-                v = [item[j] for item in reqs]
+                t = [item[m] for item in reqs]
+                v = [item[n] for item in reqs]
                 if len(t) > 0:
                     for i in range(len(t)):
                         for j in range(i, len(t)):
@@ -401,7 +415,8 @@ class CollectCSVResults:
                 y_seq.append(s / count)
                 x_seq.append(x_seq_temp[-1])
             y_seq = [round(item * 1000, 3) for item in y_seq]
-        return x_seq, y_seq
+            res_data.append((x_seq, y_seq))
+        return res_data
 
 
 class Graph:
@@ -418,29 +433,51 @@ class Graph:
         yticks(size='x-small')
         return ax
 
-    def res_graph(self, x, y):
+    def res_graph(self, res_data):
+        xmin = 0
+        xmax = 0
+        # pls = []
+        ax = Graph.graph_init()
+        color = 0
+        for res in res_data:
+            x = res[0]
+            y = res[1]
+            ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
+            ax.set_ylabel('Avg Res Time (millisecond)', size='x-small')
+            ax.set_title('Response Time', size='medium')
+            ax.plot(x, y, color=COLORS[color], linestyle='-', linewidth=1.0, marker='o',
+                    markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+            xmin = min(x) if xmin > min(x) else xmin
+            xmax = max(x) if max(x) > xmax else xmax
+            color += 1
+        # ax.legend()
+        axis(xmin=xmin, xmax=xmax)
         name = config.PROJECT_NAME + '_RES_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
-        ax = Graph.graph_init()
-        ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
-        ax.set_ylabel('Avg Res Time (millisecond)', size='x-small')
-        ax.set_title('Response Time', size='medium')
-        ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
-                markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
-        axis(xmin=min(x), xmax=max(x))
         savefig(save_to)
         close()
 
-    def conn_graph(self, x, y):
+    def conn_graph(self, res_data):
+        xmin = 0
+        xmax = 0
+        # pls = []
+        ax = Graph.graph_init()
+        color = 0
+        for res in res_data:
+            x = res[0]
+            y = res[1]
+            ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
+            ax.set_ylabel('Conn Time (millisecond)', size='x-small')
+            ax.set_title('Connection Time', size='medium')
+            ax.plot(x, y, color=COLORS[color], linestyle='-', linewidth=1.0, marker='o',
+                    markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+            xmin = min(x) if xmin > min(x) else xmin
+            xmax = max(x) if max(x) > xmax else xmax
+            color += 1
+        # ax.legend()
+        axis(xmin=xmin, xmax=xmax)
         name = config.PROJECT_NAME + '_CONN_' + self.str_time + '.png'
         save_to = self.result_dir + '/' + name
-        ax = Graph.graph_init()
-        ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
-        ax.set_ylabel('Avg Conn Time (millisecond)', size='x-small')
-        ax.set_title('Connection Time', size='medium')
-        ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
-                markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
-        axis(xmin=min(x), xmax=max(x))
         savefig(save_to)
         close()
 
