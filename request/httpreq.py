@@ -361,7 +361,14 @@ class CollectCSVResults:
         count = 0
         for i in x_seq:
             for c in x_temp:
-
+                if c <= i:
+                    continue
+                elif i < c < i + 1:
+                    count += 1
+                else:
+                    y_seq.append(count)
+                    count = 0
+        print(y_seq)
 
     # index m for end time
     # index n for elapsed time
