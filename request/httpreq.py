@@ -329,9 +329,9 @@ class CollectCSVResults:
             g = Graph()
             g.conn_graph(res_data)
         if config.TP_GRAPH_ENABLE:
-            self.tp_graph_data()
-            # g = Graph()
-            # g.tp_graph(x, y)
+            x, y = self.tp_graph_data()
+            g = Graph()
+            g.tp_graph(x, y)
 
     def sort_req_res(self, index=8):
         pass
@@ -352,23 +352,26 @@ class CollectCSVResults:
 
     def tp_graph_data(self):
         x_temp = [item[8] for item in self.req_res]
-        x_seq = [x for x in range(math.ceil(max(x_temp)) + 1)]
-        print(x_seq)
+        x_seq = [x for x in range(math.ceil(max(x_temp)) + 2)]
         x_temp.sort()
         y_seq = [0]
-        # y_seq.append(0)
-        print(x_temp)
         count = 0
         for i in x_seq:
+            f = True
             for c in x_temp:
                 if c <= i:
                     continue
                 elif i < c < i + 1:
                     count += 1
+                    f = True
                 else:
-                    y_seq.append(count)
+                    if f:
+                        y_seq.append(count)
+                        f = False
                     count = 0
-        print(y_seq)
+        y_seq.append(count)
+        y_seq.append(0)
+        return x_seq, y_seq
 
     # index m for end time
     # index n for elapsed time
@@ -506,8 +509,8 @@ class Graph:
         save_to = self.result_dir + '/' + name
         ax = Graph.graph_init()
         ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
-        ax.set_ylabel('Troughput (Bytes)', size='x-small')
-        ax.set_title('Troughput', size='medium')
+        ax.set_ylabel('Hits', size='x-small')
+        ax.set_title('Hits per Sec', size='medium')
         ax.plot(x, y, color='blue', linestyle='-', linewidth=1.0, marker='o',
                 markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
         axis(xmin=min(x), xmax=max(x))
