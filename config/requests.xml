@@ -1,0 +1,21 @@
+<requests>
+    <request trans_name="LOGIN">
+        <url>http://httpbin.org/get</url>
+        <method>GET</method>
+        <headers>{}</headers>
+        <paras>{'key','value'}</paras>
+        <json></json>
+        <verify></verify>
+        <cert></cert>
+    </request>
+
+    <request trans_name="LOGOFF">
+        <url>http://httpbin.org/get</url>
+        <method>GET</method>
+        <headers>{}</headers>
+        <paras>{'key1','value1'}</paras>
+        <json></json>
+        <verify></verify>
+        <cert></cert>
+    </request>
+</requests>

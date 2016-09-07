@@ -8,9 +8,12 @@ import requests
 import csv
 import os
 import math
+import logging
+import xml.etree.cElementTree as ET
 
 REQ_NAMES = []
 COLORS = ['blue', 'red', 'green', 'yellow', 'black', 'cyan', 'magenta']
+logging.captureWarnings(True)
 
 
 class RequestsConfig:
@@ -42,9 +45,20 @@ class RequestsConfig:
             self.req_list.append(req)
         return self.req_list
 
+    def get_request_from_xml(self, path=config.REQ_XML):
+        xml = ET.parse(path)
+        requests = xml.getroot()
+        request = requests.findall('request')
+        for r in request:
+            req = Request(r.get('trans_name'), r.find('url').text, eval(r.find('headers').text),
+                          r.find('method').text, r.find('paras').text, r.find('json').text,
+                          r.find('verify').text, r.find('cert').text)
+            # print(req.name, req.url, req.headers, req.method, req.para, req.json, req.verify, req.cert)
+            self.req_list.append(req)
+        return self.req_list
 
 class Request:
-    def __init__(self, name, url, headers=None, method='GET', para=None):
+    def __init__(self, name, url, headers=None, method='GET', para=None, json=None, verify=False, cert=None):
         self.url = url
         self.name = name
         if headers:
@@ -55,6 +69,9 @@ class Request:
             self.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.2; WOW64; rv:22.0) Gecko/20100101 Firefox/22.0')
         self.method = method
         self.para = para
+        self.json = json
+        self.verify = verify
+        self.cert = cert
 
     def add_header(self, header, value):
         self.headers[header] = value
@@ -84,7 +101,8 @@ class LoadVU(Thread):
         try:
             start_time = time.clock()
             if req.method == 'GET':
-                resp = requests.get(req.url, headers=req.headers, timeout=config.REQ_TIMEOUT)
+                resp = requests.get(req.url, headers=req.headers, timeout=config.REQ_TIMEOUT,
+                                    verify=req.verify)
             else:
                 resp = requests.post(req.url, req.para, headers=req.headers, timeout=config.REQ_TIMEOUT)
             conn_end_time = time.clock()
@@ -456,7 +474,7 @@ class Graph:
             ax.set_ylabel('Avg Res Time (millisecond)', size='x-small')
             ax.set_title('Response Time', size='medium')
             ax.plot(x, y, color=COLORS[color], linestyle='-', linewidth=1.0, marker='o',
-                    markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+                    markeredgecolor=COLORS[color], markerfacecolor='yellow', markersize=2.0)
             xmin = min(x) if xmin > min(x) else xmin
             xmax = max(x) if max(x) > xmax else xmax
             color += 1
@@ -480,7 +498,7 @@ class Graph:
             ax.set_ylabel('Conn Time (millisecond)', size='x-small')
             ax.set_title('Connection Time', size='medium')
             ax.plot(x, y, color=COLORS[color], linestyle='-', linewidth=1.0, marker='o',
-                    markeredgecolor='blue', markerfacecolor='yellow', markersize=2.0)
+                    markeredgecolor=COLORS[color], markerfacecolor='yellow', markersize=2.0)
             xmin = min(x) if xmin > min(x) else xmin
             xmax = max(x) if max(x) > xmax else xmax
             color += 1
@@ -530,3 +548,4 @@ t.stop()
 if config.GENERATE_RESULTS:
     results = CollectCSVResults(t)
     results.generate_result()
+

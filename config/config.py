@@ -2,15 +2,16 @@
 OUTPUT_DIR = 'D:/06_Workspace/07_Temp/'
 PROJECT_NAME = 'FY17Q1GOAL'
 REQ_LIST = '../config/requests.conf'
+REQ_XML = '../config/requests.xml'
 CONSOLE = False
 GENERATE_RESULTS = True
-REQ_TIMEOUT = 60
+REQ_TIMEOUT = 40
 
 # WorkLoad
-VUS = 100
-DURATION = 600  # secs
-RAMPUP = 10  # secs
-INTERVAL = 1  # secs
+VUS = 5
+DURATION = 2  # secs
+RAMPUP = 1  # secs
+INTERVAL = 0.5  # secs
 
 # Graph
 VU_GRAPH_ENABLE = True

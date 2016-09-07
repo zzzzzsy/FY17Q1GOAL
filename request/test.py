@@ -18,6 +18,16 @@
 #         print(line)
 
 
-test = [([1, 2, 5], [641.612, 640.181, 594.953]), ([4, 6, 10, 12, 16, 19], [1259.261, 3474.194, 7481.99, 9396.857, 13590.517, 15819.041])]
-print(type(test))
-print(test[1][1])
+# test = [([1, 2, 5], [641.612, 640.181, 594.953]), ([4, 6, 10, 12, 16, 19], [1259.261, 3474.194, 7481.99, 9396.857, 13590.517, 15819.041])]
+# print(type(test))
+# print(test[1][1])
+
+import requests
+import urllib3
+import logging
+
+# urllib3.disable_warnings()
+logging.captureWarnings(True)
+
+resp = requests.get('https://tap.acxiom.com.cn/public/', verify=False)
+# print(resp.content)
