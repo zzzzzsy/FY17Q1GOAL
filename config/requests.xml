@@ -3,18 +3,20 @@
         <url>http://httpbin.org/get</url>
         <method>GET</method>
         <headers>{}</headers>
-        <paras>{'key','value'}</paras>
+        <paras></paras>
+        <data></data>
         <json></json>
         <verify></verify>
         <cert></cert>
     </request>
 
     <request trans_name="LOGOFF">
-        <url>http://httpbin.org/get</url>
-        <method>GET</method>
+        <url>http://httpbin.org/post</url>
+        <method>POST</method>
         <headers>{}</headers>
-        <paras>{'key1','value1'}</paras>
-        <json></json>
+        <paras></paras>
+        <data></data>
+        <json>{'key1','value1'}</json>
         <verify></verify>
         <cert></cert>
     </request>

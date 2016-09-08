@@ -22,43 +22,44 @@ class RequestsConfig:
         self.req_list = []
         self.cf = ConfigParser()
 
-    def get_request(self):
-        self.cf.read(self.config_path)
-        secs = self.cf.sections()
-        l = len(secs)
-        while l > 0:
-            para = None
-            strreq = 'request_' + str(l)
-            REQ_NAMES.append(strreq)
-            url = self.cf.get(strreq, 'url')
-            if self.cf.has_option(strreq, 'values'):
-                values = self.cf.get(strreq, 'values')
-                para = urlencode(eval(values)).encode('utf-8')
-            if self.cf.has_option(strreq, 'headers'):
-                headers = eval(self.cf.get(strreq, 'headers'))
-            if self.cf.has_option(strreq, 'method'):
-                method = self.cf.get(strreq, 'method')
-            else:
-                method = 'GET'
-            req = Request(strreq, url, headers, method, para)
-            l -= 1
-            self.req_list.append(req)
-        return self.req_list
+    # def get_request(self):
+    #     self.cf.read(self.config_path)
+    #     secs = self.cf.sections()
+    #     l = len(secs)
+    #     while l > 0:
+    #         para = None
+    #         strreq = 'request_' + str(l)
+    #         REQ_NAMES.append(strreq)
+    #         url = self.cf.get(strreq, 'url')
+    #         if self.cf.has_option(strreq, 'values'):
+    #             values = self.cf.get(strreq, 'values')
+    #             para = urlencode(eval(values)).encode('utf-8')
+    #         if self.cf.has_option(strreq, 'headers'):
+    #             headers = eval(self.cf.get(strreq, 'headers'))
+    #         if self.cf.has_option(strreq, 'method'):
+    #             method = self.cf.get(strreq, 'method')
+    #         else:
+    #             method = 'GET'
+    #         req = Request(strreq, url, headers, method, para)
+    #         l -= 1
+    #         self.req_list.append(req)
+    #     return self.req_list
 
     def get_request_from_xml(self, path=config.REQ_XML):
         xml = ET.parse(path)
-        requests = xml.getroot()
-        request = requests.findall('request')
+        root = xml.getroot()
+        request = root.findall('request')
         for r in request:
             req = Request(r.get('trans_name'), r.find('url').text, eval(r.find('headers').text),
-                          r.find('method').text, r.find('paras').text, r.find('json').text,
-                          r.find('verify').text, r.find('cert').text)
+                          r.find('method').text, r.find('paras').text, r.find('data').text,
+                          r.find('json').text, r.find('verify').text, r.find('cert').text)
             # print(req.name, req.url, req.headers, req.method, req.para, req.json, req.verify, req.cert)
             self.req_list.append(req)
         return self.req_list
 
+
 class Request:
-    def __init__(self, name, url, headers=None, method='GET', para=None, json=None, verify=False, cert=None):
+    def __init__(self, name, url, headers=None, method='GET', para=None, data=None, json=None, verify=False, cert=None):
         self.url = url
         self.name = name
         if headers:
@@ -70,6 +71,7 @@ class Request:
         self.method = method
         self.para = para
         self.json = json
+        self.data = data
         self.verify = verify
         self.cert = cert
 
@@ -99,15 +101,14 @@ class LoadVU(Thread):
 
     def send(self, req):
         try:
+            kwargs = {'params': req.para, 'data': req.data, 'json': req.json, 'headers': req.headers,
+                      'timeout': config.REQ_TIMEOUT, 'verify': req.verify, 'cert': req.cert}
             start_time = time.clock()
-            if req.method == 'GET':
-                resp = requests.get(req.url, headers=req.headers, timeout=config.REQ_TIMEOUT,
-                                    verify=req.verify)
-            else:
-                resp = requests.post(req.url, req.para, headers=req.headers, timeout=config.REQ_TIMEOUT)
+            resp = requests.request(req.method, req.url, **kwargs)
             conn_end_time = time.clock()
             content = resp.content
             end_time = time.clock()
+            print(resp.text)
         except requests.exceptions.Timeout:
             conn_end_time = time.clock()
             content = 'Time Out Error'
@@ -537,7 +538,7 @@ class Graph:
 
 
 reqconfig = RequestsConfig()
-reqs = reqconfig.get_request()
+reqs = reqconfig.get_request_from_xml()
 workload = WorkLoad(config.RAMPUP, config.INTERVAL, config.VUS)
 t = LoadMagr(workload)
 for req in reqs:
@@ -549,3 +550,9 @@ if config.GENERATE_RESULTS:
     results = CollectCSVResults(t)
     results.generate_result()
 
+# reqconfig = RequestsConfig()
+# reqs = reqconfig.get_request_from_xml()
+# req = reqs[0]
+# resp = requests.get(req.url, params=req.para, headers=req.headers, timeout=config.REQ_TIMEOUT,
+#                     verify=req.verify)
+# print(resp.text)
