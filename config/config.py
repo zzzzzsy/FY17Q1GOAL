@@ -8,9 +8,9 @@ GENERATE_RESULTS = True
 REQ_TIMEOUT = 40
 
 # WorkLoad
-VUS = 5
-DURATION = 2  # secs
-RAMPUP = 1  # secs
+VUS = 500
+DURATION = 1200  # secs
+RAMPUP = 300  # secs
 INTERVAL = 0.5  # secs
 
 # Graph

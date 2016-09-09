@@ -1,5 +1,4 @@
 from configparser import ConfigParser
-from urllib.parse import urlencode
 from threading import Thread
 from config import config
 from pylab import *
@@ -10,6 +9,7 @@ import os
 import math
 import logging
 import xml.etree.cElementTree as ET
+from operator import itemgetter
 
 REQ_NAMES = []
 COLORS = ['blue', 'red', 'green', 'yellow', 'black', 'cyan', 'magenta']
@@ -53,6 +53,7 @@ class RequestsConfig:
             req = Request(r.get('trans_name'), r.find('url').text, eval(r.find('headers').text),
                           r.find('method').text, r.find('paras').text, r.find('data').text,
                           r.find('json').text, r.find('verify').text, r.find('cert').text)
+            REQ_NAMES.append(r.get('trans_name'))
             # print(req.name, req.url, req.headers, req.method, req.para, req.json, req.verify, req.cert)
             self.req_list.append(req)
         return self.req_list
@@ -108,7 +109,7 @@ class LoadVU(Thread):
             conn_end_time = time.clock()
             content = resp.content
             end_time = time.clock()
-            print(resp.text)
+            # print(resp.text)
         except requests.exceptions.Timeout:
             conn_end_time = time.clock()
             content = 'Time Out Error'
@@ -352,9 +353,6 @@ class CollectCSVResults:
             g = Graph()
             g.tp_graph(x, y)
 
-    def sort_req_res(self, index=8):
-        pass
-
     def vu_graph_data(self):
         x_seq = [item[1] for item in self.vu_res]
         x_temp = [item[2] for item in self.vu_res]
@@ -407,20 +405,24 @@ class CollectCSVResults:
             y_seq = []
             x_seq = []
             if reqs is not None:
-                xmax = 0
-                t = [item[m] for item in reqs]
-                v = [item[n] for item in reqs]
-                if len(t) > 0:
-                    for i in range(len(t)):
-                        for j in range(i, len(t)):
-                            if t[i] > t[j]:
-                                temp = t[j]
-                                t[j] = t[i]
-                                t[i] = temp
-                                temp = v[j]
-                                v[j] = v[i]
-                                v[i] = temp
-                    xmax = t[-1]
+                # xmax = 0
+                # t = [item[m] for item in reqs]
+                # v = [item[n] for item in reqs]
+                # if len(t) > 0:
+                #     for i in range(len(t)):
+                #         for j in range(i, len(t)):
+                #             if t[i] > t[j]:
+                #                 temp = t[j]
+                #                 t[j] = t[i]
+                #                 t[i] = temp
+                #                 temp = v[j]
+                #                 v[j] = v[i]
+                #                 v[i] = temp
+                #     xmax = t[-1]
+                sortedlist = sorted(reqs, key=itemgetter(m))
+                t = [item[m] for item in sortedlist]
+                v = [item[n] for item in sortedlist]
+                xmax = t[-1]
             x_seq_temp = [i for i in range(0, math.ceil(xmax + config.RES_X_INTERVAL), config.RES_X_INTERVAL)]
             count = 0
             s = 0

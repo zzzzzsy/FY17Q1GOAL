@@ -22,12 +22,9 @@
 # print(type(test))
 # print(test[1][1])
 
-import requests
-import urllib3
-import logging
+import csv
+from operator import itemgetter
 
-# urllib3.disable_warnings()
-logging.captureWarnings(True)
-
-resp = requests.get('https://tap.acxiom.com.cn/public/', verify=False)
-# print(resp.content)
+data = csv.reader(open('D:/test1.csv'), delimiter=',')
+sortedlist = sorted(data, key=itemgetter(0, 1))
+print(sortedlist)
