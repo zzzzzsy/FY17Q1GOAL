@@ -1,4 +1,3 @@
-from configparser import ConfigParser
 from threading import Thread
 from config import config
 from pylab import *
@@ -17,33 +16,8 @@ logging.captureWarnings(True)
 
 
 class RequestsConfig:
-    def __init__(self, config_path=config.REQ_LIST):
-        self.config_path = config_path
+    def __init__(self):
         self.req_list = []
-        self.cf = ConfigParser()
-
-    # def get_request(self):
-    #     self.cf.read(self.config_path)
-    #     secs = self.cf.sections()
-    #     l = len(secs)
-    #     while l > 0:
-    #         para = None
-    #         strreq = 'request_' + str(l)
-    #         REQ_NAMES.append(strreq)
-    #         url = self.cf.get(strreq, 'url')
-    #         if self.cf.has_option(strreq, 'values'):
-    #             values = self.cf.get(strreq, 'values')
-    #             para = urlencode(eval(values)).encode('utf-8')
-    #         if self.cf.has_option(strreq, 'headers'):
-    #             headers = eval(self.cf.get(strreq, 'headers'))
-    #         if self.cf.has_option(strreq, 'method'):
-    #             method = self.cf.get(strreq, 'method')
-    #         else:
-    #             method = 'GET'
-    #         req = Request(strreq, url, headers, method, para)
-    #         l -= 1
-    #         self.req_list.append(req)
-    #     return self.req_list
 
     def get_request_from_xml(self, path=config.REQ_XML):
         xml = ET.parse(path)
@@ -73,6 +47,15 @@ class Request:
         self.para = para
         self.json = json
         self.data = data
+        if para:
+            self.para = para.encode(config.ENCODING)
+        if json:
+            # pending test
+            # no testable case
+            json = json.replace('\r\n', '\\r\\n')
+            self.json = json.encode(config.ENCODING)
+        if data:
+            self.data = data.encode(config.ENCODING)
         self.verify = verify
         self.cert = cert
 
@@ -555,6 +538,10 @@ if config.GENERATE_RESULTS:
 # reqconfig = RequestsConfig()
 # reqs = reqconfig.get_request_from_xml()
 # req = reqs[0]
-# resp = requests.get(req.url, params=req.para, headers=req.headers, timeout=config.REQ_TIMEOUT,
-#                     verify=req.verify)
+#
+# kwargs = {'params': req.para, 'data': req.data, 'json': req.json, 'headers': req.headers,
+#           'timeout': config.REQ_TIMEOUT, 'verify': req.verify, 'cert': req.cert}
+#
+# resp = requests.request(req.method, req.url, **kwargs)
+#
 # print(resp.text)
