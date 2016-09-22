@@ -9,9 +9,9 @@ ENCODING = 'UTF-8'
 
 # WorkLoad
 VUS = 5
-DURATION = 60  # secs
-RAMPUP = 1  # secs
-INTERVAL = 1.5  # secs
+DURATION = 120  # secs
+RAMPUP = 10  # secs
+INTERVAL = 0.2  # secs
 
 # Graph
 VU_GRAPH_ENABLE = True

@@ -1,73 +1,18 @@
 <requests>
     <request trans_name="API1">
-        <url>https://ul.acxiom.com.cn/unilever.standard.ws/app/customer/profile</url>
-        <method>POST</method>
-        <headers>{"content-type":"application/json"}</headers>
+        <url>http://httpbin.org/get</url>
+        <method>get</method>
+        <headers>{'content-type':'application/json;charset=UTF-8', 'connection':'keep-alive'}</headers>
         <paras></paras>
-        <data>
-            {
-                "certificate":{
-                    "ts":"2016-08-20 09:58:47.124",
-                    "sign":"08c5c3dcbd39880a99c3cc49dfb61ea7",
-                    "source_name":"uat_data_source_name_01"
-                },
-                "first_name":"taotao",
-                "last_name":"su",
-                "mobile":"18651034556",
-                "mobile_validation_flag":"Y",
-                "email":"sara11@123.com",
-                "email2":"12313132@qq.com",
-                "email_validation_flag":"Y",
-                "open_id":"${openId}",
-                "union_id":"union_idsfsdfsdwrwrw",
-                "weibo_id":"weibo_iderwwer23424234",
-                "taobao_nick":"taobao_nickbaozixianseng",
-                "alipay_id":"alipay_id",
-                "third_party_id":"third_party_id",
-                "country":"CN",
-                "province":"320000",
-                "city":"320600",
-                "sub_city":"320602",
-                "address":"紫琅路120号",
-                "post_code":"226001",
-                "areacode_home":"0512",
-                "tel_home":"85",
-                "areacode_work":"0511",
-                "tel_work":"85546276",
-                "areacode_fax":"0513",
-                "fax":"85546276",
-                "birth_y":"1997",
-                "birth_m":"7",
-                "birth_d":"3",
-                "gender":"F",
-                "job_role":"Operation",
-                "occupation":"10",
-                "industry":"26",
-                "job_title":"Other",
-                "contact_channel":"mobile",
-                "contact_time":"105",
-                "opt_flag":"Y",
-                "monthly_income":"1000.55",
-                "marriage_status":"2",
-                "education":"6",
-                "memo":"performance test",
-                "interest":"6,2,9",
-                "nickname":"xiaoer",
-                "has_child":"0",
-                "child_birth_year":"2016",
-                "member_level":"VIP",
-                "registration_date":"2015-07-08 12:00:00"
-            }
-        </data>
+        <data></data>
         <json></json>
         <verify></verify>
         <cert></cert>
     </request>
-
     <request trans_name="API2">
-        <url>https://ponds-ws.acxiom.com.cn//pondstm/tmall/spi/register</url>
+        <url>http://httpbin.org/post</url>
         <method>POST</method>
-        <headers>{'content-type':'application/json;charset=UTF-8'}</headers>
+        <headers>{'content-type':'application/json;charset=UTF-8', 'connection':'keep-alive'}</headers>
         <paras></paras>
         <data>{"seller_name":"test","taobao_nick":"肖星昊昊521","mobile":"13365571117"}</data>
         <json></json>
